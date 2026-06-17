@@ -98,24 +98,37 @@ fi
 ###############################################################################
 # 2. Resolve paths / preconditions
 ###############################################################################
-command -v Xvfb     >/dev/null || die "Xvfb missing — 'sudo apt install xvfb'"
+command -v Xvfb     >/dev/null || die "Xvfb missing — setup.sh chalao ya 'sudo apt install xvfb'"
 command -v unzip    >/dev/null || die "unzip missing — 'sudo apt install unzip'"
-[ -x "$PRISM_BIN" ] || command -v "$PRISM_BIN" >/dev/null \
-    || die "PrismLauncher nahi mila: $PRISM_BIN (config/render.conf me PRISM_BIN set karo)"
 
-# MC_DIR auto-detect (Prism instance ka .minecraft)
-if [ -z "${MC_DIR:-}" ]; then
-    for base in \
-        "$HOME/.local/share/PrismLauncher/instances/$PRISM_INSTANCE" \
-        "$HOME/.var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher/instances/$PRISM_INSTANCE"; do
-        for sub in ".minecraft" "minecraft"; do
-            [ -d "$base/$sub" ] && MC_DIR="$base/$sub" && break 2
-        done
-    done
-fi
-[ -n "${MC_DIR:-}" ] && [ -d "$MC_DIR" ] \
-    || die "MC_DIR auto-detect fail. config/render.conf me MC_DIR set karo (instance ka .minecraft path)."
-ok "MC dir: $MC_DIR"
+LAUNCHER="${LAUNCHER:-portablemc}"
+case "$LAUNCHER" in
+    portablemc)
+        command -v portablemc >/dev/null \
+            || die "portablemc nahi mila — pehle ./setup.sh chalao (ya 'pipx install portablemc')."
+        # setup.sh dwara banaya instance dir = game dir (mods/, replay_*/ yahin)
+        MC_DIR="${INSTANCE_DIR:-$HOME/mc/render-instance}"
+        [ -d "$MC_DIR" ] \
+            || die "Instance dir nahi mila: $MC_DIR — pehle ./setup.sh chalao."
+        ;;
+    prism)
+        [ -x "$PRISM_BIN" ] || command -v "$PRISM_BIN" >/dev/null \
+            || die "PrismLauncher nahi mila: $PRISM_BIN (config/render.conf me PRISM_BIN set karo)"
+        if [ -z "${MC_DIR:-}" ]; then
+            for base in \
+                "$HOME/.local/share/PrismLauncher/instances/$PRISM_INSTANCE" \
+                "$HOME/.var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher/instances/$PRISM_INSTANCE"; do
+                for sub in ".minecraft" "minecraft"; do
+                    [ -d "$base/$sub" ] && MC_DIR="$base/$sub" && break 2
+                done
+            done
+        fi
+        [ -n "${MC_DIR:-}" ] && [ -d "$MC_DIR" ] \
+            || die "MC_DIR auto-detect fail. config/render.conf me MC_DIR set karo."
+        ;;
+    *) die "unknown LAUNCHER: $LAUNCHER (portablemc ya prism)";;
+esac
+ok "Launcher: $LAUNCHER  |  game dir: $MC_DIR"
 
 mkdir -p "$OUTPUT_DIR"
 OUT_NAME="$(basename "${OPT_INPUT%.mcpr}")"
@@ -193,8 +206,8 @@ if [ "$DET_GPU" = 0 ]; then
     export MESA_GLSL_VERSION_OVERRIDE=460
     export LP_NUM_THREADS="$TUNE_LP_THREADS"
 fi
-# JVM heap Prism ke through — instance settings me bhi set hota hai, par env hint:
-export INST_JAVA_ARGS="-Xmx${TUNE_HEAP_MB}M -Xms${TUNE_HEAP_MB}M -XX:ActiveProcessorCount=${DET_CORES}"
+# JVM heap — _JAVA_OPTIONS har JVM launch pe apply hota hai (launcher-independent).
+export _JAVA_OPTIONS="-Xmx${TUNE_HEAP_MB}M -Xms${TUNE_HEAP_MB}M -XX:ActiveProcessorCount=${DET_CORES}"
 
 XVFB_PID=""
 cleanup() {
@@ -213,10 +226,25 @@ ok "Xvfb up (pid $XVFB_PID)"
 # 5. Minecraft headless launch + render-done monitor
 ###############################################################################
 LOG_FILE="$OUTPUT_DIR/${OUT_NAME}.render.log"
-log "Minecraft launch (Prism instance: $PRISM_INSTANCE)... log: $LOG_FILE"
+MC_VERSION="${MC_VERSION:-26.1.2}"
+LOADER_VERSION="${LOADER_VERSION:-0.19.3}"
+MC_USERNAME="${MC_USERNAME:-RenderBot}"
 
-# Background me Prism, foreground me done-marker monitor.
-( "$PRISM_BIN" -l "$PRISM_INSTANCE" -a "$PRISM_ACCOUNT" >"$LOG_FILE" 2>&1 ; echo "MC_EXIT=$?" >>"$LOG_FILE" ) &
+# Launcher ke hisaab se command banao
+case "$LAUNCHER" in
+    portablemc)
+        log "Minecraft launch via portablemc (fabric:${MC_VERSION}:${LOADER_VERSION})... log: $LOG_FILE"
+        ( portablemc --main-dir "$MC_DIR" --work-dir "$MC_DIR" \
+            start -u "$MC_USERNAME" --resolution "${TUNE_W}x${TUNE_H}" \
+            "fabric:${MC_VERSION}:${LOADER_VERSION}" \
+            >"$LOG_FILE" 2>&1 ; echo "MC_EXIT=$?" >>"$LOG_FILE" ) &
+        ;;
+    prism)
+        log "Minecraft launch via Prism (instance: $PRISM_INSTANCE)... log: $LOG_FILE"
+        ( "$PRISM_BIN" -l "$PRISM_INSTANCE" -a "$PRISM_ACCOUNT" \
+            >"$LOG_FILE" 2>&1 ; echo "MC_EXIT=$?" >>"$LOG_FILE" ) &
+        ;;
+esac
 MC_WRAP_PID=$!
 
 log "Render chal raha hai — done marker ka wait..."

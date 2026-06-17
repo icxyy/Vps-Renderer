@@ -1,4 +1,5 @@
 # Gradle / build
+.gradle-dist/
 mod/.gradle/
 mod/build/
 mod/.idea/

@@ -44,7 +44,37 @@ scp ~/.minecraft/replay_recordings/2026_xx.mcpr  user@vps:/home/user/clips/
 
 ---
 
-## B) VPS par — ek baar ka setup
+## B) VPS par — ek command auto-setup (recommended)
+
+Instance manually banane ka jhanjhat nahi. `setup.sh` sab kuch karta hai — deps,
+**portablemc** (GUI-free CLI launcher), MC 26.1.2 + Fabric provision, folders, aur
+AutoRender mod build (best-effort):
+
+```bash
+git clone https://github.com/IceyyDev/Vps-Renderer.git
+cd Vps-Renderer
+./setup.sh
+```
+
+Iske baad sirf apne mods `~/mc/render-instance/mods/` me daal (26.1.x builds):
+**Fabric API**, **ReplayMod**, aur shaders ke liye **Iris + Sodium**. (AutoRender
+setup.sh khud build+copy karne ki koshish karta hai.)
+
+`setup.sh` options: `--dir <path>` `--mc <ver>` `--loader <ver>` `--user <name>`
+`--no-deps` `--no-mod-build`.
+
+> **portablemc** Minecraft ke liye sahi Java 25 JRE khud download karta hai — system
+> Java sirf AutoRender *build* ke liye chahiye. SKlauncher/Prism jaisa koi GUI nahi.
+
+Phir seedha render:
+```bash
+./render.sh --input ~/clips/clip.mcpr --dry-run   # plan + ETA
+./render.sh --input ~/clips/clip.mcpr             # render
+```
+
+---
+
+## B2) Manual setup (agar setup.sh use nahi karna)
 
 ### 1. System deps
 ```bash
