@@ -1,0 +1,21 @@
+# Gradle / build
+mod/.gradle/
+mod/build/
+mod/.idea/
+mod/*.iml
+mod/run/
+.gradle/
+build/
+
+# Gradle wrapper jar optional — wrapper script rakho
+# (agar wrapper commit karna ho to ye line hata do)
+
+# OS / editor
+.DS_Store
+*.swp
+
+# Local render artifacts
+*.mcpr
+*.mp4
+*.render.log
+renders/
